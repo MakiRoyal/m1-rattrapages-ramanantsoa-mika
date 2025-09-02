@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mini-App IA avec TensorFlow.js</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
+  <style>
+    .card { @apply rounded-2xl shadow-lg p-5 bg-white; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen">
+  <header class="max-w-6xl mx-auto p-6">
+    <h1 class="text-3xl font-bold">Mini-App Web avec IA</h1>
+  </header>
+
+  <main class="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+
+    <section class="card lg:col-span-2">
+      <h2 class="text-xl font-semibold mb-3">Analyse de texte</h2>
+      <textarea id="userText" rows="6" class="w-full rounded-xl border border-gray-300 p-3" placeholder="Tapez votre texte ici…"></textarea>
+
+      <div class="mt-4 p-3 rounded-xl bg-gray-50">
+        <p class="text-sm font-medium">Résumé automatique :</p>
+        <div id="summary" class="mt-2 text-sm"></div>
+      </div>
+
+      <div class="mt-4 p-3 rounded-xl bg-gray-50">
+        <p class="text-sm font-medium">Style d'écriture détecté :</p>
+        <div id="writingStyle" class="mt-2 text-sm"></div>
+      </div>
+
+      <div class="mt-4 p-3 rounded-xl bg-gray-50">
+        <p class="text-sm font-medium">Idées et conseils :</p>
+        <div id="aiContent" class="mt-2 text-sm"></div>
+      </div>
+
+      <div class="mt-4 p-3 rounded-xl bg-gray-50">
+        <p class="text-sm font-medium">Statistiques :</p>
+        <div id="stats" class="mt-2 text-sm mono"></div>
+      </div>
+    </section>
+
+
+    <section class="card">
+      <h2 class="text-xl font-semibold mb-3">Analyse d'image</h2>
+      <input id="imageInput" type="file" accept="image/*" class="block w-full text-sm" />
+      <img id="preview" class="mt-3 rounded-xl hidden" alt="Prévisualisation" />
+      <div id="imgResults" class="mt-3 space-y-1 text-sm"></div>
+    </section>
+
+
+    <section class="card lg:col-span-3">
+      <h2 class="text-lg font-semibold mb-3">Analyse de nombre</h2>
+      <input id="numberInput" type="number" class="w-full rounded-xl border border-gray-300 p-3" placeholder="Ex: 42" />
+      <button id="analyzeNumberBtn" class="mt-2 px-4 py-2 bg-gray-900 text-white rounded-xl">Analyser</button>
+      <div id="numResult" class="mt-2 p-3 rounded-xl bg-gray-50 hidden mono"></div>
+    </section>
+
+
+    <section class="card lg:col-span-3">
+      <h2 class="text-lg font-semibold mb-3">Journal</h2>
+      <ul id="log" class="text-sm space-y-1"></ul>
+    </section>
+
+  </main>
+
+  <script src="script.js" defer></script>
+</body>
+</html>

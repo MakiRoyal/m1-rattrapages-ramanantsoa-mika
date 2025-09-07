@@ -148,11 +148,11 @@ function preprocessImage(img) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   
-  // Taille optimale augmentée pour améliorer la détection
+
   const size = Math.min(640, Math.max(img.naturalWidth, img.naturalHeight));
   canvas.width = canvas.height = size;
   
-  // Fond blanc pour meilleur contraste
+
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, size, size);
   
@@ -165,18 +165,18 @@ function preprocessImage(img) {
   
   ctx.drawImage(img, x, y, w, h);
   
-  // Amélioration avancée du contraste et de la netteté
+
   const imageData = ctx.getImageData(0, 0, size, size);
   const data = imageData.data;
   
-  // Premier pass: amélioration adaptative avancée
+
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i], g = data[i + 1], b = data[i + 2];
     
-    // Calcul de la luminance
+
     const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
     
-    // Amélioration adaptative selon 4 zones de luminance
+
     let contrastFactor, brightnessFactor;
     if (luminance < 64) {
       contrastFactor = 1.4;
@@ -197,7 +197,7 @@ function preprocessImage(img) {
     data[i + 2] = Math.min(255, Math.max(0, (b - 128) * contrastFactor + 128 + brightnessFactor));
   }
   
-  // Deuxième pass: filtre de netteté pour améliorer les contours
+
   const sharpened = new Uint8ClampedArray(data);
   for (let y = 1; y < size - 1; y++) {
     for (let x = 1; x < size - 1; x++) {
@@ -210,14 +210,14 @@ function preprocessImage(img) {
         const left = data[(y * size + (x - 1)) * 4 + c];
         const right = data[(y * size + (x + 1)) * 4 + c];
         
-        // Filtre de netteté : center * 5 - adjacent pixels
+
         const sharpValue = center * 1.5 - (top + bottom + left + right) * 0.125;
         sharpened[idx + c] = Math.min(255, Math.max(0, sharpValue));
       }
     }
   }
   
-  // Appliquer le filtre de netteté
+
   for (let i = 0; i < data.length; i += 4) {
     data[i] = sharpened[i];
     data[i + 1] = sharpened[i + 1];
@@ -229,7 +229,7 @@ function preprocessImage(img) {
 }
 
 function enhanceResults(detections, classifications) {
-  // Regrouper et améliorer les détections d'objets
+
   const groupedDetections = {};
   detections.forEach(d => {
     const key = d.class.toLowerCase();
@@ -239,9 +239,9 @@ function enhanceResults(detections, classifications) {
   });
   
   const enhancedDetections = Object.values(groupedDetections)
-    .filter(d => d.score > 0.15) // Seuil plus bas pour plus de détections
+    .filter(d => d.score > 0.15) 
     .map(d => {
-      // Boost plus important pour objets très courants
+
       const veryCommonObjects = ['person', 'car', 'dog', 'cat', 'chair', 'table'];
       const commonObjects = ['phone', 'laptop', 'book', 'bottle', 'cup', 'clock'];
       
@@ -256,7 +256,7 @@ function enhanceResults(detections, classifications) {
     })
     .sort((a, b) => b.score - a.score);
   
-  // Regrouper et améliorer les classifications
+
   const groupedClassifications = {};
   classifications.forEach(p => {
     const mainName = p.className.split(',')[0].trim().toLowerCase();
@@ -271,10 +271,10 @@ function enhanceResults(detections, classifications) {
   
   const enhancedClassifications = Object.values(groupedClassifications)
     .map(g => {
-      // Moyenne pondérée des probabilités
+
       const avgProb = g.probabilities.reduce((sum, p) => sum + p, 0) / g.probabilities.length;
       
-      // Boost pour catégories bien reconnues
+
       const animalKeywords = ['dog', 'cat', 'bird', 'horse', 'sheep', 'cow'];
       const vehicleKeywords = ['car', 'truck', 'bus', 'motorcycle', 'bicycle'];
       const objectKeywords = ['phone', 'laptop', 'book', 'chair', 'table'];
@@ -297,7 +297,7 @@ function enhanceResults(detections, classifications) {
         probability: Math.min(1, avgProb * boost)
       };
     })
-    .filter(p => p.probability > 0.03) // Seuil plus bas pour plus de résultats
+    .filter(p => p.probability > 0.03) 
     .sort((a, b) => b.probability - a.probability);
   
   return { enhancedDetections, enhancedClassifications };
@@ -335,7 +335,7 @@ $('#imageInput')?.addEventListener('change', async e => {
 
       const enhancedCanvas = preprocessImage(img);
       
-      // Analyse sur image originale et améliorée
+
       const [originalDetections, enhancedDetections, originalPreds, enhancedPreds] = await Promise.all([
         cocoSsdModel ? cocoSsdModel.detect(img) : Promise.resolve([]),
         cocoSsdModel ? cocoSsdModel.detect(enhancedCanvas) : Promise.resolve([]),

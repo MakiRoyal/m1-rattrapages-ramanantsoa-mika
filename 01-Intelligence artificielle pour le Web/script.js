@@ -69,14 +69,29 @@ async function loadNumberModel() {
       
       const isSquare = Number.isInteger(n) && Math.sqrt(abs) % 1 === 0;
       
+      // Vérifier si c'est un nombre de Fibonacci
+      const isFibonacci = Number.isInteger(n) && n >= 0 && checkFibonacci(n);
+      
       const props = [];
       if (isPrime) props.push('premier');
       if (isSquare) props.push('carré parfait');
+      if (isFibonacci) props.push('Fibonacci');
       
       return { cat, parity, properties: props.join(', ') || 'aucune' };
     }
   };
   log('Modèle nombre chargé');
+}
+
+function checkFibonacci(n) {
+  if (n === 0 || n === 1) return true;
+  let a = 0, b = 1;
+  while (b < n) {
+    const temp = a + b;
+    a = b;
+    b = temp;
+  }
+  return b === n;
 }
 
 function analyzeText() {
@@ -125,7 +140,7 @@ function analyzeNumber() {
   }
   
   const analysis = numberModel.predict(v);
-  result.textContent = `${analysis.cat} • ${analysis.parity} • ${analysis.properties}`;
+  result.textContent = `${analysis.cat} • ${analysis.parity} • Propriétés spéciales : ${analysis.properties}`;
   result.classList.remove('hidden');
 }
 
@@ -133,16 +148,16 @@ function preprocessImage(img) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   
-
-  const size = Math.min(512, Math.max(img.naturalWidth, img.naturalHeight));
+  // Taille optimale augmentée pour améliorer la détection
+  const size = Math.min(640, Math.max(img.naturalWidth, img.naturalHeight));
   canvas.width = canvas.height = size;
   
   // Fond blanc pour meilleur contraste
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, size, size);
   
-
-  const scale = Math.min(size / img.naturalWidth, size / img.naturalHeight) * 0.9;
+  // Centrer l'image avec proportions respectées (plus de padding)
+  const scale = Math.min(size / img.naturalWidth, size / img.naturalHeight) * 0.95;
   const w = img.naturalWidth * scale;
   const h = img.naturalHeight * scale;
   const x = (size - w) / 2;
@@ -150,21 +165,63 @@ function preprocessImage(img) {
   
   ctx.drawImage(img, x, y, w, h);
   
-
+  // Amélioration avancée du contraste et de la netteté
   const imageData = ctx.getImageData(0, 0, size, size);
   const data = imageData.data;
   
+  // Premier pass: amélioration adaptative avancée
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i], g = data[i + 1], b = data[i + 2];
     
-    // Amélioration adaptative du contraste
+    // Calcul de la luminance
     const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-    const factor = luminance < 128 ? 1.2 : 1.1;
-    const boost = luminance < 80 ? 10 : 0;
     
-    data[i] = Math.min(255, Math.max(0, (r - 128) * factor + 128 + boost));
-    data[i + 1] = Math.min(255, Math.max(0, (g - 128) * factor + 128 + boost));
-    data[i + 2] = Math.min(255, Math.max(0, (b - 128) * factor + 128 + boost));
+    // Amélioration adaptative selon 4 zones de luminance
+    let contrastFactor, brightnessFactor;
+    if (luminance < 64) {
+      contrastFactor = 1.4;
+      brightnessFactor = 20;
+    } else if (luminance < 128) {
+      contrastFactor = 1.25;
+      brightnessFactor = 10;
+    } else if (luminance < 192) {
+      contrastFactor = 1.15;
+      brightnessFactor = 0;
+    } else {
+      contrastFactor = 1.1;
+      brightnessFactor = -5;
+    }
+    
+    data[i] = Math.min(255, Math.max(0, (r - 128) * contrastFactor + 128 + brightnessFactor));
+    data[i + 1] = Math.min(255, Math.max(0, (g - 128) * contrastFactor + 128 + brightnessFactor));
+    data[i + 2] = Math.min(255, Math.max(0, (b - 128) * contrastFactor + 128 + brightnessFactor));
+  }
+  
+  // Deuxième pass: filtre de netteté pour améliorer les contours
+  const sharpened = new Uint8ClampedArray(data);
+  for (let y = 1; y < size - 1; y++) {
+    for (let x = 1; x < size - 1; x++) {
+      const idx = (y * size + x) * 4;
+      
+      for (let c = 0; c < 3; c++) {
+        const center = data[idx + c];
+        const top = data[((y - 1) * size + x) * 4 + c];
+        const bottom = data[((y + 1) * size + x) * 4 + c];
+        const left = data[(y * size + (x - 1)) * 4 + c];
+        const right = data[(y * size + (x + 1)) * 4 + c];
+        
+        // Filtre de netteté : center * 5 - adjacent pixels
+        const sharpValue = center * 1.5 - (top + bottom + left + right) * 0.125;
+        sharpened[idx + c] = Math.min(255, Math.max(0, sharpValue));
+      }
+    }
+  }
+  
+  // Appliquer le filtre de netteté
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = sharpened[i];
+    data[i + 1] = sharpened[i + 1];
+    data[i + 2] = sharpened[i + 2];
   }
   
   ctx.putImageData(imageData, 0, 0);
@@ -172,29 +229,75 @@ function preprocessImage(img) {
 }
 
 function enhanceResults(detections, classifications) {
-  // Améliorer les détections d'objets
-  const enhancedDetections = detections
-    .filter(d => d.score > 0.2)
+  // Regrouper et améliorer les détections d'objets
+  const groupedDetections = {};
+  detections.forEach(d => {
+    const key = d.class.toLowerCase();
+    if (!groupedDetections[key] || d.score > groupedDetections[key].score) {
+      groupedDetections[key] = d;
+    }
+  });
+  
+  const enhancedDetections = Object.values(groupedDetections)
+    .filter(d => d.score > 0.15) // Seuil plus bas pour plus de détections
     .map(d => {
-
-      const commonObjects = ['person', 'car', 'dog', 'cat', 'phone', 'laptop', 'book'];
-      const boost = commonObjects.includes(d.class.toLowerCase()) ? 1.15 : 1;
+      // Boost plus important pour objets très courants
+      const veryCommonObjects = ['person', 'car', 'dog', 'cat', 'chair', 'table'];
+      const commonObjects = ['phone', 'laptop', 'book', 'bottle', 'cup', 'clock'];
+      
+      let boost = 1;
+      if (veryCommonObjects.includes(d.class.toLowerCase())) {
+        boost = 1.2;
+      } else if (commonObjects.includes(d.class.toLowerCase())) {
+        boost = 1.1;
+      }
+      
       return { ...d, score: Math.min(1, d.score * boost) };
     })
     .sort((a, b) => b.score - a.score);
   
-
-  const enhancedClassifications = classifications
-    .filter(p => p.probability > 0.05)
-    .map(p => {
-      const mainName = p.className.split(',')[0].trim();
-
-      const boost = mainName.length > 3 ? 1.05 : 1;
-      return { 
-        className: mainName, 
-        probability: Math.min(1, p.probability * boost) 
+  // Regrouper et améliorer les classifications
+  const groupedClassifications = {};
+  classifications.forEach(p => {
+    const mainName = p.className.split(',')[0].trim().toLowerCase();
+    if (!groupedClassifications[mainName]) {
+      groupedClassifications[mainName] = {
+        name: p.className.split(',')[0].trim(),
+        probabilities: []
+      };
+    }
+    groupedClassifications[mainName].probabilities.push(p.probability);
+  });
+  
+  const enhancedClassifications = Object.values(groupedClassifications)
+    .map(g => {
+      // Moyenne pondérée des probabilités
+      const avgProb = g.probabilities.reduce((sum, p) => sum + p, 0) / g.probabilities.length;
+      
+      // Boost pour catégories bien reconnues
+      const animalKeywords = ['dog', 'cat', 'bird', 'horse', 'sheep', 'cow'];
+      const vehicleKeywords = ['car', 'truck', 'bus', 'motorcycle', 'bicycle'];
+      const objectKeywords = ['phone', 'laptop', 'book', 'chair', 'table'];
+      
+      let boost = 1;
+      const nameLower = g.name.toLowerCase();
+      
+      if (animalKeywords.some(k => nameLower.includes(k))) {
+        boost = 1.15;
+      } else if (vehicleKeywords.some(k => nameLower.includes(k))) {
+        boost = 1.1;
+      } else if (objectKeywords.some(k => nameLower.includes(k))) {
+        boost = 1.08;
+      } else if (g.name.length > 4) {
+        boost = 1.05;
+      }
+      
+      return {
+        className: g.name,
+        probability: Math.min(1, avgProb * boost)
       };
     })
+    .filter(p => p.probability > 0.03) // Seuil plus bas pour plus de résultats
     .sort((a, b) => b.probability - a.probability);
   
   return { enhancedDetections, enhancedClassifications };
